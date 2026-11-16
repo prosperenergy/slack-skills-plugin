@@ -210,9 +210,9 @@ class TestToolSelection:
     @classmethod
     def setup_class(cls) -> None:
         if not GEMINI_API_KEY_POOL:
-            pytest.fail("No Gemini API key set (set GEMINI_API_KEY or GEMINI_API_KEY_*)")
+            pytest.skip("No Gemini API key set (set GEMINI_API_KEY or GEMINI_API_KEY_*); eval tests need a key")
         if not SLACK_MCP_TOKEN:
-            pytest.fail("SLACK_MCP_TOKEN not set")
+            pytest.skip("SLACK_MCP_TOKEN not set; eval tests need a Slack MCP token")
         # Fetch tools once for the whole class: the MCP list is one network
         # round-trip, and skills are read from disk.
         cls.available_tools = get_slack_mcp_tools() + get_all_skill_tools()

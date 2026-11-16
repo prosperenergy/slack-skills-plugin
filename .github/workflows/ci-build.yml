@@ -105,11 +105,23 @@ jobs:
       - typecheck
       - test
       - eval
-    if: ${{ !success() && github.ref == 'refs/heads/main' && github.event_name != 'workflow_dispatch' }}
+    # failure() is true only when a needed job failed, not when evals skip without keys.
+    if: ${{ failure() && github.ref == 'refs/heads/main' && github.event_name != 'workflow_dispatch' }}
     permissions:
       contents: read
     steps:
+      - name: Check for webhook
+        id: webhook
+        env:
+          SLACK_REGRESSION_FAILURES_WEBHOOK_URL: ${{ secrets.SLACK_REGRESSION_FAILURES_WEBHOOK_URL }}
+        run: |
+          if [ -n "$SLACK_REGRESSION_FAILURES_WEBHOOK_URL" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No SLACK_REGRESSION_FAILURES_WEBHOOK_URL secret; skipping Slack notification."
+          fi
       - name: Send notifications of failing tests
+        if: ${{ steps.webhook.outputs.present == 'true' }}
         uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
         with:
           errors: true
