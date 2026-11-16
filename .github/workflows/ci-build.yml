@@ -76,9 +76,6 @@ jobs:
     name: Evaluation tests
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    # Forks and this repo may not have the upstream Gemini/Slack secrets.
-    # Skip the job cleanly so scheduled CI stays green without failing on setup.
-    if: ${{ secrets.GEMINI_API_KEY_BOB != '' || secrets.GEMINI_API_KEY_MWBROOKS != '' || secrets.GEMINI_API_KEY_ELAINE != '' || secrets.GEMINI_API_KEY_ZIMEG != '' }}
     permissions:
       contents: read
     steps:
@@ -108,13 +105,23 @@ jobs:
       - typecheck
       - test
       - eval
-    # failure() is false when a needed job is skipped (e.g. evals with no keys).
-    # !success() would fire notifications on every green run once evals are skipped.
-    if: ${{ failure() && github.ref == 'refs/heads/main' && github.event_name != 'workflow_dispatch' && secrets.SLACK_REGRESSION_FAILURES_WEBHOOK_URL != '' }}
+    # failure() is true only when a needed job failed, not when evals skip without keys.
+    if: ${{ failure() && github.ref == 'refs/heads/main' && github.event_name != 'workflow_dispatch' }}
     permissions:
       contents: read
     steps:
+      - name: Check for webhook
+        id: webhook
+        env:
+          SLACK_REGRESSION_FAILURES_WEBHOOK_URL: ${{ secrets.SLACK_REGRESSION_FAILURES_WEBHOOK_URL }}
+        run: |
+          if [ -n "$SLACK_REGRESSION_FAILURES_WEBHOOK_URL" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No SLACK_REGRESSION_FAILURES_WEBHOOK_URL secret; skipping Slack notification."
+          fi
       - name: Send notifications of failing tests
+        if: ${{ steps.webhook.outputs.present == 'true' }}
         uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
         with:
           errors: true
